@@ -1,0 +1,22 @@
+{
+    "name": "discordbot",
+    "version": "1.0.0",
+    "description": "Custom discord bot for my servers.",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/sanraith/discordbot.git"
+    },
+    "author": "Soma Zsják",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/sanraith/discordbot/issues"
+    },
+    "homepage": "https://github.com/sanraith/discordbot#readme",
+    "devDependencies": {
+        "typescript": "^4.3.2"
+    }
+}
