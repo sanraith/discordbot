@@ -1,2 +1,6 @@
+import { DiscordBot } from './discordbot';
 
-console.log('Hello world!');
+console.log('Bot starting...');
+
+const bot = new DiscordBot();
+bot.init();
