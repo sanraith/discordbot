@@ -17,20 +17,19 @@
     ],
     "rules": {
         "indent": [
-            "error",
+            "off",
             4
-        ],
-        "linebreak-style": [
-            "error",
-            "windows"
-        ],
-        "quotes": [
-            "error",
-            "single"
         ],
         "semi": [
             "error",
             "always"
+        ],
+        "quotes": [
+            "error",
+            "single",
+            {
+                "allowTemplateLiterals": true
+            }
         ]
     }
 }
