@@ -33,7 +33,7 @@ export class DiscordBot {
         console.log(`Read message: ${message.content}`);
         const textChannel = message.channel;
 
-        if (`${config.prefix}play` === message.content) {
+        if (message.content.startsWith(`${config.prefix}play`)) {
             const voiceChannel = message.member?.voice.channel;
             if (!voiceChannel) {
                 await textChannel.send('You need to be in a voice channel to play music!');
@@ -46,11 +46,15 @@ export class DiscordBot {
                 return;
             }
 
-            const url = 'https://www.youtube.com/watch?v=wN9bXy_fiOE';
-            console.log('Looking for song...');
-            const song = await ytdl.getInfo(url);
-            console.log(song);
+            let url = 'https://www.youtube.com/watch?v=wN9bXy_fiOE';
+            const parts = message.content.split(' ');
+            if (parts.length > 1) {
+                url = parts[1];
+            }
+            console.log(parts);
+            console.log(`Looking for song: ${url}`);
 
+            const song = await ytdl.getInfo(url);
             const connection = await voiceChannel.join();
             try {
                 const stream = ytdl(url);
@@ -63,7 +67,7 @@ export class DiscordBot {
                         console.error(error);
                         voiceChannel.leave();
                     });
-                dispatcher.setVolumeLogarithmic(1);
+                dispatcher.setVolumeLogarithmic(.8);
                 message.channel.send('Playing song...');
             } catch (err) {
                 console.log(err);
