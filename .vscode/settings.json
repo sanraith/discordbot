@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
+        "cond",
         "discordbot",
         "discordjs",
         "ytdl"
-    ]
+    ],
+    "typescript.preferences.importModuleSpecifier": "relative"
 }
