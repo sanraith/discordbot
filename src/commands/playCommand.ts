@@ -1,5 +1,6 @@
 import { Message } from 'discord.js';
 import * as ytdl from 'ytdl-core';
+import { ServerManager } from '../core/manager';
 import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
 
 export class PlayCommand implements ICommand {
@@ -8,10 +9,14 @@ export class PlayCommand implements ICommand {
         new RegExp(COMMAND_PREFIX_REGEX + 'play (.*)')
     ];
 
+    constructor(private serverManager: ServerManager) { }
+
     async execute(message: Message, matchedFilter: RegExp): Promise<ICommandResult> {
         const canExecuteResult = this.assertPrerequisites(message);
         if (!canExecuteResult.success) { return canExecuteResult; }
-        const voiceChannel = message.member!.voice.channel!; // Voice channel is asserted by canExecute
+        const member = message.member!;
+        const voiceChannel = member.voice.channel!; // Voice channel is asserted by canExecute
+        const guildId = message.guild!.id;
 
         const [, url] = matchedFilter.exec(message.content) ?? [];
         console.log(`Looking for song: ${url}`);
@@ -24,24 +29,8 @@ export class PlayCommand implements ICommand {
             return { success: false, errorMessage: errorMessage };
         }
 
-        const connection = await voiceChannel.join();
-        try {
-            const stream = ytdl(url);
-            const dispatcher = connection.play(stream)
-                .on('finish', () => {
-                    voiceChannel.leave();
-                    // TODO on complete
-                })
-                .on('error', error => {
-                    console.error(error);
-                    voiceChannel.leave();
-                });
-            dispatcher.setVolumeLogarithmic(.8);
-            await message.channel.send(`Playing song: ${videoInfo.videoDetails.title}`);
-        } catch (err) {
-            console.log(err);
-        }
-
+        const server = this.serverManager.getOrAdd(guildId);
+        await server.musicPlayer.play({ member, song: videoInfo }, voiceChannel, message.channel);
         return SUCCESS_RESULT;
     }
 
@@ -49,7 +38,6 @@ export class PlayCommand implements ICommand {
         let videoInfo: ytdl.videoInfo | null = null;
         try {
             videoInfo = await ytdl.getInfo(url);
-            console.log(videoInfo);
         } catch (err) {
             // video not found
         }
@@ -69,6 +57,10 @@ export class PlayCommand implements ICommand {
         const permissions = voiceChannel.permissionsFor(message.client.user);
         if (!permissions || !permissions.has('CONNECT') || !permissions.has('SPEAK')) {
             return { success: false, errorMessage: 'I need the permissions to join and speak in your voice channel!' };
+        }
+
+        if (!message.guild?.id) {
+            return { success: false, errorMessage: 'I need to access the guild of your message!' };
         }
 
         return SUCCESS_RESULT;
