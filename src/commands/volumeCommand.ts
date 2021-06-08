@@ -5,8 +5,8 @@ import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from '
 export class VolumeCommand implements ICommand {
 
     messageFilters = [
-        new RegExp(COMMAND_PREFIX_REGEX + 'vol (\\d+)'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'volume (\\d+)')
+        new RegExp(COMMAND_PREFIX_REGEX + 'vol (\\d+).*'),
+        new RegExp(COMMAND_PREFIX_REGEX + 'volume (\\d+).*')
     ];
 
     constructor(private serverManager: ServerManager) { }
