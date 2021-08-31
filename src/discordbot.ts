@@ -11,7 +11,7 @@ export class DiscordBot {
     }
 
     async init(): Promise<void> {
-        await this.client.login(config.token);
+        await this.client.login(config.discordToken);
         this.client.once('ready', () => {
             console.log('Ready!');
         });
