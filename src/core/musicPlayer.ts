@@ -69,7 +69,7 @@ export class MusicPlayer {
                 });
             this.musicDispatcher.setVolumeLogarithmic(this.server.volume);
 
-            await this.textChannel?.send(`Playing song: ${item.song.videoDetails.title}`);
+            await this.textChannel?.send(`Playing song: ${item.song.videoDetails.title} (${item.song.videoDetails.video_url})`);
 
         } catch (err) {
             console.log(err);

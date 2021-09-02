@@ -5,6 +5,7 @@ import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from '
 export class StopCommand implements ICommand {
 
     messageFilters = [
+        new RegExp(COMMAND_PREFIX_REGEX + 's$'),
         new RegExp(COMMAND_PREFIX_REGEX + 'stop')
     ];
 
