@@ -52,7 +52,7 @@ export class PlayCommand implements ICommand {
         if (!this.searchCache[term]) {
             try {
                 const { results } = await youtubeSearch(term, opts);
-                this.searchCache[term] = results ? results[0].id : term;
+                this.searchCache[term] = results ? `https://www.youtube.com/watch?v=${results[0].id}` : term;
             } catch (error) {
                 console.log(error);
             }
