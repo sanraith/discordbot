@@ -3,7 +3,8 @@
         "cond",
         "discordbot",
         "discordjs",
-        "ytdl"
+        "ytdl",
+        "ytsr"
     ],
     "typescript.preferences.importModuleSpecifier": "relative"
 }

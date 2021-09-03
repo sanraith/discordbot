@@ -1,7 +1,6 @@
 import { Message } from 'discord.js';
-import * as youtubeSearch from 'youtube-search';
 import * as ytdl from 'ytdl-core';
-import { config } from '../config';
+import * as ytsr from 'ytsr';
 import { ServerManager } from '../core/manager';
 import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
 const isUrlRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*)/;
@@ -12,7 +11,6 @@ export class PlayCommand implements ICommand {
         new RegExp(COMMAND_PREFIX_REGEX + 'p (.*)'),
         new RegExp(COMMAND_PREFIX_REGEX + 'play (.*)')
     ];
-    searchCache: Record<string, string> = {};
 
     constructor(private serverManager: ServerManager) { }
 
@@ -44,23 +42,22 @@ export class PlayCommand implements ICommand {
     }
 
     private async searchVideoOnYoutube(term: string) {
-        const opts: youtubeSearch.YouTubeSearchOptions = {
-            maxResults: 1,
-            key: config.youtubeKey
-        };
+        try {
+            const results = await ytsr(term, { pages: 1, safeSearch: false });
+            const videos = results.items.filter(x => x.type === 'video') as ytsr.Video[];
+            console.log(`Found ${videos.length} videos.`);
 
-        if (!this.searchCache[term]) {
-            try {
-                const { results } = await youtubeSearch(term, opts);
-                this.searchCache[term] = results ? `https://www.youtube.com/watch?v=${results[0].id}` : term;
-            } catch (error) {
-                console.log(error);
+            const firstVideo = videos[0];
+            if (firstVideo) {
+                return firstVideo.url;
             }
-            console.log(`Cache miss for search: ${term}`);
-        } else {
-            console.log(`Loaded search result from cache for: ${term} => ${this.searchCache[term]}`);
+        } catch (error) {
+            console.log(error);
         }
-        return this.searchCache[term] ?? term;
+
+        console.log(`Could not find video for term: ${term}`);
+
+        return term;
     }
 
     private async getVideoInfo(url: string): Promise<ytdl.videoInfo | null> {
