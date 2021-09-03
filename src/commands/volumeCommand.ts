@@ -16,6 +16,8 @@ export class VolumeCommand implements ICommand {
         const [, volumeStr] = matchedFilter.exec(message.content) ?? [];
         const volume = Math.max(Math.min(parseInt(volumeStr), 200), 0);
         const server = this.serverManager.getOrAdd(message.guild!.id);
+
+        await message.react(volume / 100 >= server.volume ? '🔊' : '🔉');
         await server.musicPlayer.setVolume(volume);
 
         return SUCCESS_RESULT;

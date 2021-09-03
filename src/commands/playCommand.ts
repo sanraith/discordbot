@@ -17,9 +17,13 @@ export class PlayCommand implements ICommand {
     async execute(message: Message, matchedFilter: RegExp): Promise<ICommandResult> {
         const canExecuteResult = this.assertPrerequisites(message);
         if (!canExecuteResult.success) { return canExecuteResult; }
+
         const member = message.member!;
         const voiceChannel = member.voice.channel!; // Voice channel is asserted by canExecute
         const guildId = message.guild!.id;
+
+        const server = this.serverManager.getOrAdd(guildId);
+        void message.react(server.musicQueue.length > 0 ? '▶' : '🎵');
 
         let [, url] = matchedFilter.exec(message.content) ?? [];
         console.log(`Looking for song: ${url}`);
@@ -30,13 +34,11 @@ export class PlayCommand implements ICommand {
 
         const videoInfo = await this.getVideoInfo(url);
         if (!videoInfo) {
-            // TODO fallback to YT search
             const errorMessage = `Cannot find video: ${url}`;
             console.log(errorMessage);
             return { success: false, errorMessage: errorMessage };
         }
 
-        const server = this.serverManager.getOrAdd(guildId);
         await server.musicPlayer.play({ member, song: videoInfo }, voiceChannel, message.channel);
         return SUCCESS_RESULT;
     }

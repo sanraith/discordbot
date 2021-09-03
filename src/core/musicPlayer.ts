@@ -57,20 +57,30 @@ export class MusicPlayer {
         if (!item || !this.voiceChannel) { return; }
 
         try {
+            void this.textChannel?.send(
+                `Playing: ` +
+                `${this.convertSecondsToTimeString(item.song.videoDetails.lengthSeconds)} | ` +
+                `${item.song.videoDetails.title} ${item.song.videoDetails.video_url}`);
+
             const voiceConnection = await this.voiceChannel.join();
-            const musicStream = ytdl(item.song.videoDetails.video_url);
+            const musicStream = await this.getMusicStream(item);
+            if (!musicStream) {
+                console.log(`Could not find audio for item: ${item.song.videoDetails.title}!`);
+                this.onPlayComplete();
+                return;
+            }
+
             this.musicDispatcher = voiceConnection.play(musicStream)
                 .on('finish', () => {
                     this.onPlayComplete();
+                    console.log('music finish');
                 })
                 .on('error', error => {
                     console.error(error);
+                    console.log('music error');
                     this.onPlayComplete();
                 });
             this.musicDispatcher.setVolumeLogarithmic(this.server.volume);
-
-            await this.textChannel?.send(`Playing song: ${item.song.videoDetails.title} (${item.song.videoDetails.video_url})`);
-
         } catch (err) {
             console.log(err);
         }
@@ -82,6 +92,29 @@ export class MusicPlayer {
             this.voiceChannel?.leave();
         } else {
             void this.playItem();
+        }
+    }
+
+    private async getMusicStream(item: MusicQueueItem) {
+        const info = await ytdl.getInfo(item.song.videoDetails.videoId);
+        const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+        const bestAudio = audioFormats.sort((a, b) => (b.audioBitrate ?? 0) - (a.audioBitrate ?? 0))[0];
+        if (!bestAudio) {
+            return null;
+        }
+
+        const musicStream = ytdl(item.song.videoDetails.video_url, { format: bestAudio });
+        return musicStream;
+    }
+
+    private convertSecondsToTimeString(secondStr: string): string {
+        const seconds = parseInt(secondStr);
+        if (seconds < 3600) {
+            return new Date(seconds * 1000).toISOString().substr(14, 5);
+        } else if (seconds < 86400) {
+            return new Date(seconds * 1000).toISOString().substr(11, 8);
+        } else {
+            return '> 24h';
         }
     }
 }

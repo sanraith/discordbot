@@ -12,6 +12,8 @@ export class SkipCommand implements ICommand {
 
     async execute(message: Message): Promise<ICommandResult> {
         const server = this.serverManager.getOrAdd(message.guild!.id);
+
+        await message.react('⏭');
         await server.musicPlayer.skip();
 
         return SUCCESS_RESULT;

@@ -13,6 +13,8 @@ export class StopCommand implements ICommand {
 
     async execute(message: Message): Promise<ICommandResult> {
         const server = this.serverManager.getOrAdd(message.guild!.id);
+
+        await message.react('⏹');
         await server.musicPlayer.stop();
 
         return SUCCESS_RESULT;
