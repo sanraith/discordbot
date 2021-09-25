@@ -26,6 +26,7 @@ export class PlayCommand implements ICommand {
         void message.react(server.musicQueue.length > 0 ? '▶' : '🎵');
 
         let [, url] = matchedFilter.exec(message.content) ?? [];
+        url = url.trim();
         console.log(`Looking for song: ${url}`);
 
         if (!isUrlRegex.test(url)) {
