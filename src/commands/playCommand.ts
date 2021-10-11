@@ -65,10 +65,13 @@ export class PlayCommand implements ICommand {
 
     private async getVideoInfo(url: string): Promise<ytdl.videoInfo | null> {
         let videoInfo: ytdl.videoInfo | null = null;
+
         try {
             videoInfo = await ytdl.getInfo(url);
         } catch (err) {
-            // video not found
+            // video not found or error
+            console.log(`Error during getting video info for url: ${url}`);
+            console.log(err);
         }
         return videoInfo;
     }
