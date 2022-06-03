@@ -6,7 +6,18 @@ export class DiscordBot {
     client: Discord.Client;
 
     constructor() {
-        const client = new Discord.Client();
+        const client = new Discord.Client(/*{ // for future reference
+            intents: [
+                'DIRECT_MESSAGES',
+                'DIRECT_MESSAGE_REACTIONS',
+                'GUILDS',
+                'GUILD_MEMBERS',
+                'GUILD_MESSAGES',
+                'GUILD_MESSAGE_REACTIONS',
+                'GUILD_PRESENCES',
+                'GUILD_VOICE_STATES'
+            ]
+        }*/);
         this.client = client;
     }
 

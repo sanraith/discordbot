@@ -1,9 +1,9 @@
 import { Message } from 'discord.js';
 import * as ytdl from 'ytdl-core';
 import * as ytsr from 'ytsr';
+import { isUrlRegex } from '../core/helpers';
 import { ServerManager } from '../core/manager';
 import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
-const isUrlRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*)/;
 
 export class PlayCommand implements ICommand {
 
@@ -40,7 +40,14 @@ export class PlayCommand implements ICommand {
             return { success: false, errorMessage: errorMessage };
         }
 
-        await server.musicPlayer.play({ member, song: videoInfo }, voiceChannel, message.channel);
+        await server.musicPlayer.play({
+            member, song: {
+                id: videoInfo.videoDetails.videoId,
+                url: videoInfo.videoDetails.video_url,
+                title: videoInfo.videoDetails.title,
+                durationSeconds: parseInt(videoInfo.videoDetails.lengthSeconds)
+            }
+        }, voiceChannel, message.channel);
         return SUCCESS_RESULT;
     }
 

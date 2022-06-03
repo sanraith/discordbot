@@ -1,6 +1,6 @@
 import { DMChannel, NewsChannel, StreamDispatcher, TextChannel, VoiceChannel } from 'discord.js';
 import * as ytdl from 'ytdl-core';
-import { MusicQueueItem, Server } from './manager';
+import { MusicQueueItem, PlaylistQueueItem, Server } from './manager';
 
 type SourceTextChannel = TextChannel | DMChannel | NewsChannel;
 
@@ -14,22 +14,55 @@ export class MusicPlayer {
         this.queue = server.musicQueue;
     }
 
-    async play(queueItem: MusicQueueItem, voiceChannel: VoiceChannel, textChannel: SourceTextChannel): Promise<void> {
+    async playList(listItem: PlaylistQueueItem, voiceChannel: VoiceChannel, textChannel: SourceTextChannel): Promise<void> {
+        await textChannel.send(
+            `Queued playlist '${listItem.title}' with ${listItem.items.length} items for a duration of ${this.convertSecondsToTimeString(listItem.totalDurationSeconds)}.`
+        );
+
+        for (const item of listItem.items) {
+            const musicQueueItem: MusicQueueItem = {
+                member: listItem.member,
+                song: item,
+                playlist: listItem
+            };
+            await this.play(musicQueueItem, voiceChannel, textChannel, false);
+        }
+
+        console.log('finished playlist queue');
+    }
+
+    async play(queueItem: MusicQueueItem, voiceChannel: VoiceChannel, textChannel: SourceTextChannel, logQueue = true): Promise<void> {
         this.voiceChannel = voiceChannel;
         this.textChannel = textChannel;
         this.queue.push(queueItem);
         if (this.queue.length === 1) {
             void this.playItem();
-        } else {
-            await this.textChannel.send(`Queued song: ${queueItem.song.videoDetails.title}`);
+        } else if (logQueue) {
+            await this.textChannel.send(`Queued song: ${queueItem.song.title}`);
         }
     }
 
     async skip(): Promise<void> {
         const currentItem = this.queue[0];
         if (currentItem) {
-            await this.textChannel?.send(`Skipped song: ${currentItem.song.videoDetails.title}.`);
+            await this.textChannel?.send(`Skipped song: ${currentItem.song.title}.`);
         }
+
+        this.musicDispatcher?.end();
+    }
+
+    async skipList(): Promise<void> {
+        const currentItem = this.queue[0];
+        if (!currentItem || !currentItem.playlist) {
+            await this.textChannel?.send(`Cannot skip playlist as none is playing currently.`);
+            return;
+        }
+
+        // find next item from different playlist
+        let nextDifferentIndex = this.queue.findIndex(x => x.playlist !== currentItem.playlist);
+        if (nextDifferentIndex === -1) { nextDifferentIndex = this.queue.length; }
+        this.queue.splice(1, nextDifferentIndex - 1);
+        await this.textChannel?.send(`Skipped ${nextDifferentIndex} items from playlist '${currentItem.playlist.title}'.`);
 
         this.musicDispatcher?.end();
     }
@@ -59,13 +92,13 @@ export class MusicPlayer {
         try {
             void this.textChannel?.send(
                 `Playing: ` +
-                `${this.convertSecondsToTimeString(item.song.videoDetails.lengthSeconds)} | ` +
-                `${item.song.videoDetails.title} ${item.song.videoDetails.video_url}`);
+                `${this.convertSecondsToTimeString(item.song.durationSeconds)} | ` +
+                `${item.song.title} ${item.song.url}`);
 
             const voiceConnection = await this.voiceChannel.join();
             const musicStream = await this.getMusicStream(item);
             if (!musicStream) {
-                console.log(`Could not find audio for item: ${item.song.videoDetails.title}!`);
+                console.log(`Could not find audio for item: ${item.song.title}!`);
                 this.onPlayComplete();
                 return;
             }
@@ -96,19 +129,18 @@ export class MusicPlayer {
     }
 
     private async getMusicStream(item: MusicQueueItem) {
-        const info = await ytdl.getInfo(item.song.videoDetails.videoId);
+        const info = await ytdl.getInfo(item.song.id);
         const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
         const bestAudio = audioFormats.sort((a, b) => (b.audioBitrate ?? 0) - (a.audioBitrate ?? 0))[0];
         if (!bestAudio) {
             return null;
         }
 
-        const musicStream = ytdl(item.song.videoDetails.video_url, { format: bestAudio });
+        const musicStream = ytdl(item.song.url, { format: bestAudio });
         return musicStream;
     }
 
-    private convertSecondsToTimeString(secondStr: string): string {
-        const seconds = parseInt(secondStr);
+    private convertSecondsToTimeString(seconds: number): string {
         if (seconds < 3600) {
             return new Date(seconds * 1000).toISOString().substr(14, 5);
         } else if (seconds < 86400) {

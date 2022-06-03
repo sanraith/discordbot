@@ -4,9 +4,25 @@ import ytdl = require('ytdl-core');
 
 const defaultVolume = .75;
 
+interface VideoInfo {
+    id: string;
+    url: string;
+    title: string;
+    durationSeconds: number;
+}
+
+export interface PlaylistQueueItem {
+    member: GuildMember;
+    items: VideoInfo[];
+    title: string;
+    url: string;
+    totalDurationSeconds: number;
+}
+
 export interface MusicQueueItem {
     member: GuildMember;
-    song: ytdl.videoInfo;
+    song: VideoInfo;
+    playlist?: PlaylistQueueItem;
 }
 
 export interface Server {
