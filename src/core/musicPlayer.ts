@@ -132,19 +132,29 @@ export class MusicPlayer {
         const info = await ytdl.getInfo(item.song.id);
         const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
         const sortedFormats = audioFormats.sort((a, b) => (a.audioBitrate ?? 0) - (b.audioBitrate ?? 0));
+        const unwantedCodecs = 'opus';
 
-        let bestAudio = sortedFormats[0];
+        let bestFormat = sortedFormats[0];
         for (const format of sortedFormats) {
-            if (format.audioBitrate ?? 0 > (bestAudio.audioBitrate ?? 0)) { bestAudio = format; }
-            if (bestAudio.audioBitrate ?? 0 > 64) { break; }
+            const isHigherBitrate = (format.audioBitrate ?? 0) > (bestFormat.audioBitrate ?? 0);
+            const isFormatBetterOrSame = bestFormat.codecs === unwantedCodecs || format.codecs !== unwantedCodecs;
+            if (isHigherBitrate && isFormatBetterOrSame) {
+                bestFormat = format;
+            }
+
+            const isBitrateSufficient = (bestFormat.audioBitrate ?? 0) > 64;
+            const isCodecSufficient = bestFormat.codecs !== unwantedCodecs;
+            if (isBitrateSufficient && isCodecSufficient) {
+                break;
+            }
         }
 
-        if (!bestAudio) {
+        if (!bestFormat) {
             return null;
         }
 
-        console.log(`Picked audio format: ${bestAudio.codecs}, bitrate: ${bestAudio.bitrate ?? 'unknown'}, audioBitrate: ${bestAudio.audioBitrate ?? 'unknown'}`);
-        const musicStream = ytdl(item.song.url, { format: bestAudio });
+        console.log(`Picked audio format: ${bestFormat.codecs}, bitrate: ${bestFormat.bitrate ?? 'unknown'}, audioBitrate: ${bestFormat.audioBitrate ?? 'unknown'}`);
+        const musicStream = ytdl(item.song.url, { format: bestFormat });
 
         return musicStream;
     }
