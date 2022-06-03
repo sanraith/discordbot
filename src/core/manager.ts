@@ -1,6 +1,5 @@
 import { GuildMember } from 'discord.js';
 import { MusicPlayer } from './musicPlayer';
-import ytdl = require('ytdl-core');
 
 const defaultVolume = .75;
 

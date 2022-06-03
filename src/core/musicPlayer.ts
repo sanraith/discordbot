@@ -93,7 +93,7 @@ export class MusicPlayer {
             void this.textChannel?.send(
                 `Playing: ` +
                 `${this.convertSecondsToTimeString(item.song.durationSeconds)} | ` +
-                `${item.song.title} ${item.song.url}`);
+                `${item.song.title} <${item.song.url}>`);
 
             const voiceConnection = await this.voiceChannel.join();
             const musicStream = await this.getMusicStream(item);
@@ -131,12 +131,21 @@ export class MusicPlayer {
     private async getMusicStream(item: MusicQueueItem) {
         const info = await ytdl.getInfo(item.song.id);
         const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-        const bestAudio = audioFormats.sort((a, b) => (b.audioBitrate ?? 0) - (a.audioBitrate ?? 0))[0];
+        const sortedFormats = audioFormats.sort((a, b) => (a.audioBitrate ?? 0) - (b.audioBitrate ?? 0));
+
+        let bestAudio = sortedFormats[0];
+        for (const format of sortedFormats) {
+            if (format.audioBitrate ?? 0 > (bestAudio.audioBitrate ?? 0)) { bestAudio = format; }
+            if (bestAudio.audioBitrate ?? 0 > 64) { break; }
+        }
+
         if (!bestAudio) {
             return null;
         }
 
+        console.log(`Picked audio format: ${bestAudio.codecs}, bitrate: ${bestAudio.bitrate ?? 'unknown'}, audioBitrate: ${bestAudio.audioBitrate ?? 'unknown'}`);
         const musicStream = ytdl(item.song.url, { format: bestAudio });
+
         return musicStream;
     }
 
