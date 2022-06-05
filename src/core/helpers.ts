@@ -47,7 +47,7 @@ export async function asyncTakeFirst<TItem>(iterator: AsyncGenerator<TItem, void
 }
 
 export async function asyncTakeAll<TItem>(iterator: AsyncGenerator<TItem, void, undefined>): Promise<TItem[]> {
-    const items = [];
+    const items: TItem[] = [];
     for await (const item of iterator) {
         items.push(item);
     }

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, Message } from 'discord.js';
-import * as ytpl from 'ytpl';
-import * as ytsr from 'ytsr';
+import ytpl from 'ytpl';
+import ytsr from 'ytsr';
 import { asyncTakeAll, asyncTakeFirst, convertSecondsToTimeString, isUrlRegex, iterateYoutubePages } from '../core/helpers';
 import { ServerManager } from '../core/manager';
 import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
@@ -35,7 +35,7 @@ export class PlaylistCommand implements ISlashCommand {
 
         const userId = interaction.member!.user.id;
         const member = interaction.guild!.members.cache.get(userId)!;
-        const voiceChannel = member.voice.channel!;
+        const voiceChannel = member.voice.channel;
         const server = this.serverManager.getOrAdd(interaction.guildId!);
 
         console.log(`Looking for song: ${searchTerm}`);
@@ -68,7 +68,7 @@ export class PlaylistCommand implements ISlashCommand {
             member: member,
             items: songQueueItems,
             totalDurationSeconds: totalDurationSeconds
-        }, voiceChannel);
+        }, voiceChannel!);
 
         return SUCCESS_RESULT;
     }

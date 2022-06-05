@@ -2,25 +2,15 @@
     "compileOnSave": false,
     "compilerOptions": {
         "baseUrl": "./",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
         "outDir": "./dist",
         "forceConsistentCasingInFileNames": true,
         "strict": true,
         "noImplicitReturns": true,
-        "noFallthroughCasesInSwitch": true,
         "sourceMap": true,
-        "declaration": false,
-        "downlevelIteration": true,
-        "experimentalDecorators": true,
         "moduleResolution": "node",
-        "importHelpers": true,
         "target": "es6",
         "module": "commonjs",
-        "lib": [
-            "es2018",
-            "dom"
-        ],
-    },
-    "lib": [
-        "es2015"
-    ]
+    }
 }

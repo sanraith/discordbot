@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CommandInteraction, Message } from 'discord.js';
-import * as ytdl from 'ytdl-core';
-import * as ytsr from 'ytsr';
+import ytdl from 'ytdl-core';
+import ytsr from 'ytsr';
 import { isUrlRegex } from '../core/helpers';
 import { ServerManager } from '../core/manager';
 import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
@@ -36,7 +36,7 @@ export class PlayCommand implements ISlashCommand {
 
         const userId = interaction.member!.user.id;
         const member = interaction.guild!.members.cache.get(userId)!;
-        const voiceChannel = member.voice.channel!;
+        const voiceChannel = member.voice.channel;
         const server = this.serverManager.getOrAdd(interaction.guildId!);
 
         console.log(`Looking for song: ${searchTerm}`);
@@ -56,7 +56,7 @@ export class PlayCommand implements ISlashCommand {
             title: videoInfo.videoDetails.title,
             durationSeconds: parseInt(videoInfo.videoDetails.lengthSeconds)
         };
-        const { mode } = await server.musicPlayer.play({ member, song }, voiceChannel);
+        const { mode } = await server.musicPlayer.play({ member, song }, voiceChannel!);
         if (mode === 'queue') {
             await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', queued: '${song.title}' <${url}>`);
         } else {

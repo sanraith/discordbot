@@ -1,7 +1,7 @@
 import { AudioPlayer, AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, demuxProbe, DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior, PlayerSubscription } from '@discordjs/voice';
 import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import { Readable } from 'stream';
-import * as ytdl from 'ytdl-core';
+import ytdl from 'ytdl-core';
 import { convertSecondsToTimeString, nothingAsync } from './helpers';
 import { MusicQueueItem, PlaylistQueueItem, Server } from './manager';
 
@@ -153,7 +153,7 @@ export class MusicPlayer {
     }
 
     private onPlayComplete() {
-        (this.audioResource?.playStream as Readable)?.destroy();
+        this.audioResource!.playStream.destroy();
         console.log('music finish');
 
         this.queue.shift();

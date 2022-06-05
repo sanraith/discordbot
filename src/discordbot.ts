@@ -1,5 +1,4 @@
-import * as Discord from 'discord.js';
-import { CommandInteraction, Message } from 'discord.js';
+import Discord, { CommandInteraction, Message } from 'discord.js';
 import { COMMANDS, registerSlashCommand, serverManager, SLASH_COMMANDS } from './commands/commands';
 import { config } from './config';
 
