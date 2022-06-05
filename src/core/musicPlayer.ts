@@ -1,4 +1,4 @@
-import { AudioPlayer, AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior, PlayerSubscription } from '@discordjs/voice';
+import { AudioPlayer, AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, demuxProbe, DiscordGatewayAdapterCreator, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior, PlayerSubscription, VoiceConnection } from '@discordjs/voice';
 import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import { Readable } from 'stream';
 import * as ytdl from 'ytdl-core';
@@ -17,7 +17,7 @@ export class MusicPlayer {
         this.queue = server.musicQueue;
 
         const endSong = () => this.onPlayComplete();
-        this.audioPlayer = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
+        this.audioPlayer = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } });
         this.audioPlayer
             .on(AudioPlayerStatus.AutoPaused, endSong)
             .on(AudioPlayerStatus.Idle, endSong)
@@ -118,15 +118,14 @@ export class MusicPlayer {
                 this.onPlayComplete();
                 return;
             }
-            this.audioResource = createAudioResource(musicStream);
-            this.audioResource?.volume?.setVolume(this.server.volume);
+            this.audioResource = await this.probeAndCreateResource(musicStream);
 
-            // TODO handle rejoining the same channel
             const voiceConnection = joinVoiceChannel({
                 channelId: this.voiceChannel.id,
                 guildId: this.voiceChannel.guildId,
                 adapterCreator: this.voiceChannel.guild.voiceAdapterCreator as DiscordGatewayAdapterCreator
             });
+            this.playerSubscription?.unsubscribe();
             this.playerSubscription = voiceConnection.subscribe(this.audioPlayer);
             this.audioPlayer.play(this.audioResource);
         } catch (err) {
@@ -135,7 +134,6 @@ export class MusicPlayer {
     }
 
     private onPlayComplete() {
-        // TODO check if same as musicstream created above
         (this.audioResource?.playStream as Readable)?.destroy();
         console.log('music finish');
 
@@ -150,23 +148,30 @@ export class MusicPlayer {
         }
     }
 
-    // TODO try opus again as libs are updated
+    private async probeAndCreateResource(readableStream: Readable): Promise<AudioResource<null>> {
+        const { stream, type } = await demuxProbe(readableStream);
+        const audioResource = createAudioResource(stream, { inputType: type, inlineVolume: true });
+        audioResource?.volume?.setVolume(this.server.volume);
+
+        return audioResource;
+    }
+
     private async getMusicStream(item: MusicQueueItem) {
         const info = await ytdl.getInfo(item.song.id);
         const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
         const sortedFormats = audioFormats.sort((a, b) => (a.audioBitrate ?? 0) - (b.audioBitrate ?? 0));
-        const unwantedCodecs = 'opus';
+        const preferredCodecs = 'opus';
 
         let bestFormat = sortedFormats[0];
         for (const format of sortedFormats) {
             const isHigherBitrate = (format.audioBitrate ?? 0) > (bestFormat.audioBitrate ?? 0);
-            const isFormatBetterOrSame = bestFormat.codecs === unwantedCodecs || format.codecs !== unwantedCodecs;
+            const isFormatBetterOrSame = bestFormat.codecs !== preferredCodecs || format.codecs === preferredCodecs;
             if (isHigherBitrate && isFormatBetterOrSame) {
                 bestFormat = format;
             }
 
-            const isBitrateSufficient = (bestFormat.audioBitrate ?? 0) > 64;
-            const isCodecSufficient = bestFormat.codecs !== unwantedCodecs;
+            const isBitrateSufficient = (bestFormat.audioBitrate ?? 0) >= 64;
+            const isCodecSufficient = bestFormat.codecs === preferredCodecs;
             if (isBitrateSufficient && isCodecSufficient) {
                 break;
             }
@@ -177,7 +182,12 @@ export class MusicPlayer {
         }
 
         console.log(`Picked audio format: ${bestFormat.codecs}, bitrate: ${bestFormat.bitrate ?? 'unknown'}, audioBitrate: ${bestFormat.audioBitrate ?? 'unknown'}`);
-        const musicStream = ytdl(item.song.url, { format: bestFormat });
+        const musicStream = ytdl(item.song.url, {
+            format: bestFormat,
+            highWaterMark: 1 << 62, // To fix disconnecting issues, referenced from: https://github.com/fent/node-ytdl-core/issues/902#issuecomment-1086880966
+            liveBuffer: 1 << 62,
+            dlChunkSize: 0 //disabling chunking is recommended in discord bot
+        });
 
         return musicStream;
     }
