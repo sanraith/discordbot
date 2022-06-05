@@ -29,7 +29,8 @@ export class DiscordBot {
             console.log('Disconnect!');
         });
 
-        this.client.on('message', message => void this.onMessage(message));
+        this.client.on('messageCreate', message => void this.onMessage(message));
+        this.client.on('messageUpdate', (_, newMessage) => void this.onMessage(newMessage as Discord.Message));
     }
 
     async onMessage(message: Discord.Message): Promise<void> {
@@ -45,6 +46,7 @@ export class DiscordBot {
             for (const filter of command.messageFilters) {
                 if (!filter.test(message.content)) { continue; }
 
+                await message.reactions.removeAll();
                 const result = await command.execute(message, filter);
                 if (!result.success) {
                     await textChannel.send(result.errorMessage);
