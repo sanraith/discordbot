@@ -1,5 +1,6 @@
 import * as Discord from 'discord.js';
-import { COMMANDS } from './commands/commands';
+import { CommandInteraction, Message } from 'discord.js';
+import { COMMANDS, registerSlashCommand, serverManager, SLASH_COMMANDS } from './commands/commands';
 import { config } from './config';
 
 export class DiscordBot {
@@ -31,23 +32,42 @@ export class DiscordBot {
 
         this.client.on('messageCreate', message => void this.onMessage(message));
         this.client.on('messageUpdate', (_, newMessage) => void this.onMessage(newMessage as Discord.Message));
+        this.client.on('interactionCreate', interaction => void this.onInteraction(interaction));
     }
 
-    async onMessage(message: Discord.Message): Promise<void> {
-        if (message.author.bot || !message.content.startsWith(config.prefix)) {
+    private async onInteraction(interaction: Discord.Interaction): Promise<void> {
+        if (!interaction.isCommand() || !interaction.guildId || !interaction.channel) { return; }
+        await interaction.deferReply();
+
+        const command = SLASH_COMMANDS.find(x => x.slashSignatures.some(sc => sc.name === interaction.commandName));
+        if (!command) {
+            await interaction.editReply(`I do not understand the command: '${interaction.commandName}'`);
             return;
         }
-        if (!this.client) { console.log('something is wrong...'); }
+
+        await this.handleNewServerOrChannel(interaction);
+
+        const result = await command.executeInteraction(interaction);
+        if (!result.success) {
+            await interaction.editReply(result.errorMessage);
+        }
+    }
+
+    private async onMessage(message: Discord.Message): Promise<void> {
+        if (message.author.bot || !message.guildId || !message.content.startsWith(config.prefix)) {
+            return;
+        }
         console.log(`Read message: ${message.content}`);
 
         const textChannel = message.channel;
         let matchedCommand = false;
         for (const command of COMMANDS) {
-            for (const filter of command.messageFilters) {
+            for (const filter of command.messageSignatures) {
                 if (!filter.test(message.content)) { continue; }
 
-                await message.reactions.removeAll();
-                const result = await command.execute(message, filter);
+                await this.handleNewServerOrChannel(message);
+
+                const result = await command.executeMessage(message, filter);
                 if (!result.success) {
                     await textChannel.send(result.errorMessage);
                 }
@@ -56,5 +76,13 @@ export class DiscordBot {
             }
             if (matchedCommand) { break; }
         }
+    }
+
+    private async handleNewServerOrChannel(message: Message | CommandInteraction) {
+        const server = serverManager.getOrAdd(message.guildId!);
+        if (!server.areSlashCommandsRegistered) {
+            await registerSlashCommand.registerCommands(message.guildId!);
+        }
+        server.musicPlayer.switchTextChannel(message.channel!);
     }
 }

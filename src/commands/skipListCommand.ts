@@ -1,23 +1,29 @@
-import { Message } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { CommandInteraction } from 'discord.js';
 import { ServerManager } from '../core/manager';
-import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
+import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
-export class SkipListCommand implements ICommand {
+function generateConfig(commandName: string) {
+    return new SlashCommandBuilder()
+        .setName(commandName)
+        .setDescription('Skips the currently playing list.');
+}
 
-    messageFilters = [
-        new RegExp(COMMAND_PREFIX_REGEX + 'sl$'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'skip list'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'skip[lL]ist')
+export class SkipListCommand implements ISlashCommand {
+    slashSignatures = [
+        generateConfig('skip-list')
     ];
 
     constructor(private serverManager: ServerManager) { }
 
-    async execute(message: Message): Promise<ICommandResult> {
+    async executeInteraction(message: CommandInteraction): Promise<ICommandResult> {
         const server = this.serverManager.getOrAdd(message.guild!.id);
-
-        void message.react('⏭');
-        void message.react('📃');
-        await server.musicPlayer.skipList();
+        const { success, skipCount, skippedTitle } = await server.musicPlayer.skipList();
+        if (success) {
+            await message.editReply(`Skipped ${skipCount ?? 0} items from playlist '${skippedTitle ?? '?'}'.`);
+        } else {
+            await message.editReply(`No playlist is currently playing!`);
+        }
 
         return SUCCESS_RESULT;
     }

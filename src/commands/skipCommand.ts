@@ -1,20 +1,29 @@
-import { Message } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { CommandInteraction } from 'discord.js';
 import { ServerManager } from '../core/manager';
-import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
+import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
-export class SkipCommand implements ICommand {
+function generateConfig(commandName: string) {
+    return new SlashCommandBuilder()
+        .setName(commandName)
+        .setDescription('Skips the currently playing song.');
+}
 
-    messageFilters = [
-        new RegExp(COMMAND_PREFIX_REGEX + 'skip')
+export class SkipCommand implements ISlashCommand {
+    slashSignatures = [
+        generateConfig('skip')
     ];
 
     constructor(private serverManager: ServerManager) { }
 
-    async execute(message: Message): Promise<ICommandResult> {
-        const server = this.serverManager.getOrAdd(message.guild!.id);
-
-        await message.react('⏭');
-        await server.musicPlayer.skip();
+    async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
+        const server = this.serverManager.getOrAdd(interaction.guild!.id);
+        const { success, skippedTitle } = await server.musicPlayer.skip();
+        if (success) {
+            await interaction.editReply(`Skipped song: ${skippedTitle ?? '?'}.`);
+        } else {
+            await interaction.editReply('No song to skip!');
+        }
 
         return SUCCESS_RESULT;
     }

@@ -1,37 +1,47 @@
-import { Message } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { CommandInteraction, Message } from 'discord.js';
 import * as ytdl from 'ytdl-core';
 import * as ytsr from 'ytsr';
 import { isUrlRegex } from '../core/helpers';
 import { ServerManager } from '../core/manager';
-import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
+import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
-export class PlayCommand implements ICommand {
+const nameParameter = 'song';
 
-    messageFilters = [
-        new RegExp(COMMAND_PREFIX_REGEX + 'p (.*)'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'play (.*)')
+function generateConfig(commandName: string) {
+    return new SlashCommandBuilder().setName(commandName)
+        .setDescription('Plays a youtube video identified by its title or url.')
+        .addStringOption(option => option
+            .setName(nameParameter)
+            .setDescription('The title or url of the youtube video.')
+            .setRequired(true));
+}
+
+export class PlayCommand implements ISlashCommand {
+
+    slashSignatures = [
+        generateConfig('play')
     ];
 
     constructor(private serverManager: ServerManager) { }
 
-    async execute(message: Message, matchedFilter: RegExp): Promise<ICommandResult> {
-        const canExecuteResult = this.assertPrerequisites(message);
+    async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
+        const canExecuteResult = this.assertPrerequisites(interaction);
         if (!canExecuteResult.success) { return canExecuteResult; }
 
-        const member = message.member!;
-        const voiceChannel = member.voice.channel!; // Voice channel is asserted by canExecute
-        const guildId = message.guild!.id;
-
-        const server = this.serverManager.getOrAdd(guildId);
-        void message.react(server.musicQueue.length > 0 ? '▶' : '🎵');
-
-        let [, url] = matchedFilter.exec(message.content) ?? [];
-        url = url.trim();
-        console.log(`Looking for song: ${url}`);
-
-        if (!isUrlRegex.test(url)) {
-            url = await this.searchVideoOnYoutube(url);
+        const searchTerm = interaction.options.getString(nameParameter);
+        if (searchTerm === null) {
+            return { success: false, errorMessage: 'No title provided!' };
         }
+
+        const userId = interaction.member!.user.id;
+        const member = interaction.guild!.members.cache.get(userId)!;
+        const voiceChannel = member.voice.channel!;
+        const server = this.serverManager.getOrAdd(interaction.guildId!);
+
+        console.log(`Looking for song: ${searchTerm}`);
+        const isUrl = isUrlRegex.test(searchTerm);
+        const url = isUrl ? searchTerm : await this.searchVideoOnYoutube(searchTerm);
 
         const videoInfo = await this.getVideoInfo(url);
         if (!videoInfo) {
@@ -40,14 +50,19 @@ export class PlayCommand implements ICommand {
             return { success: false, errorMessage: errorMessage };
         }
 
-        await server.musicPlayer.play({
-            member, song: {
-                id: videoInfo.videoDetails.videoId,
-                url: videoInfo.videoDetails.video_url,
-                title: videoInfo.videoDetails.title,
-                durationSeconds: parseInt(videoInfo.videoDetails.lengthSeconds)
-            }
-        }, voiceChannel, message.channel);
+        const song = {
+            id: videoInfo.videoDetails.videoId,
+            url: videoInfo.videoDetails.video_url,
+            title: videoInfo.videoDetails.title,
+            durationSeconds: parseInt(videoInfo.videoDetails.lengthSeconds)
+        };
+        const { mode } = await server.musicPlayer.play({ member, song }, voiceChannel);
+        if (mode === 'queue') {
+            await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', queued: '${song.title}' <${url}>`);
+        } else {
+            await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', found: '${song.title}'`);
+        }
+
         return SUCCESS_RESULT;
     }
 
@@ -83,8 +98,14 @@ export class PlayCommand implements ICommand {
         return videoInfo;
     }
 
-    private assertPrerequisites(message: Message) {
-        const voiceChannel = message.member?.voice.channel;
+    private assertPrerequisites(message: Message | CommandInteraction) {
+        const userId = message.member?.user.id;
+        if (!userId) {
+            return { success: false, errorMessage: 'Cannot determine command user!' };
+        }
+
+        const member = message.guild?.members.cache.get(userId);
+        const voiceChannel = member?.voice.channel;
         if (!voiceChannel) {
             return { success: false, errorMessage: 'You need to be in a voice channel to play music!' };
         }

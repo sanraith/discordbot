@@ -1,37 +1,46 @@
-import { Message } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { CommandInteraction, Message } from 'discord.js';
 import * as ytpl from 'ytpl';
 import * as ytsr from 'ytsr';
-import { asyncTakeAll, asyncTakeFirst, isUrlRegex, iterateYoutubePages } from '../core/helpers';
+import { asyncTakeAll, asyncTakeFirst, convertSecondsToTimeString, isUrlRegex, iterateYoutubePages } from '../core/helpers';
 import { ServerManager } from '../core/manager';
-import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
+import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
-export class PlaylistCommand implements ICommand {
-    messageFilters = [
-        new RegExp(COMMAND_PREFIX_REGEX + 'pl (.*)'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'play[lL]ist (.*)'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'play list (.*)')
+const nameParameter = 'list';
+
+function generateConfig(commandName: string) {
+    return new SlashCommandBuilder().setName(commandName)
+        .setDescription('Plays a youtube playlist identified by its title or url.')
+        .addStringOption(option => option
+            .setName(nameParameter)
+            .setDescription('The name or url of the playlist.')
+            .setRequired(true));
+}
+
+export class PlaylistCommand implements ISlashCommand {
+    slashSignatures = [
+        generateConfig('play-list')
     ];
 
     constructor(private serverManager: ServerManager) { }
 
-    async execute(message: Message, matchedFilter: RegExp): Promise<ICommandResult> {
-        const canExecuteResult = this.assertPrerequisites(message);
+    async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
+        const canExecuteResult = this.assertPrerequisites(interaction);
         if (!canExecuteResult.success) { return canExecuteResult; }
 
-        const member = message.member!;
-        const voiceChannel = member.voice.channel!; // Voice channel is asserted by canExecute
-        const guildId = message.guild!.id;
-
-        const server = this.serverManager.getOrAdd(guildId);
-        void message.react('🎵');
-        void message.react('📃');
-
-        let [, url] = matchedFilter.exec(message.content) ?? [];
-        url = url.trim();
-        console.log(`Looking for playlist: ${url}`);
-        if (!isUrlRegex.test(url)) {
-            url = await this.searchPlaylistsOnYoutube(url);
+        const searchTerm = interaction.options.getString(nameParameter);
+        if (searchTerm === null) {
+            return { success: false, errorMessage: 'No title provided!' };
         }
+
+        const userId = interaction.member!.user.id;
+        const member = interaction.guild!.members.cache.get(userId)!;
+        const voiceChannel = member.voice.channel!;
+        const server = this.serverManager.getOrAdd(interaction.guildId!);
+
+        console.log(`Looking for song: ${searchTerm}`);
+        const isUrl = isUrlRegex.test(searchTerm);
+        const url = isUrl ? searchTerm : await this.searchPlaylistsOnYoutube(searchTerm);
 
         const playlistInfo = await this.getPlaylistInfo(url);
         if (!playlistInfo) {
@@ -49,14 +58,17 @@ export class PlaylistCommand implements ICommand {
             title: x.title,
             durationSeconds: x.durationSec ?? 0
         }));
+        const totalDurationSeconds = songQueueItems.reduce((a, x) => a + x.durationSeconds, 0);
 
+        await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', ` +
+            `queued playlist '${playlistInfo.title}' with ${songs.length} items for a duration of ${convertSecondsToTimeString(totalDurationSeconds)}.`);
         await server.musicPlayer.playList({
             url: playlistInfo.url,
             title: playlistInfo.title,
             member: member,
             items: songQueueItems,
-            totalDurationSeconds: songQueueItems.reduce((a, x) => a + x.durationSeconds, 0)
-        }, voiceChannel, message.channel);
+            totalDurationSeconds: totalDurationSeconds
+        }, voiceChannel);
 
         return SUCCESS_RESULT;
     }
@@ -104,8 +116,14 @@ export class PlaylistCommand implements ICommand {
         return null;
     }
 
-    private assertPrerequisites(message: Message) {
-        const voiceChannel = message.member?.voice.channel;
+    private assertPrerequisites(message: Message | CommandInteraction) {
+        const userId = message.member?.user.id;
+        if (!userId) {
+            return { success: false, errorMessage: 'Cannot determine command user!' };
+        }
+
+        const member = message.guild?.members.cache.get(userId);
+        const voiceChannel = member?.voice.channel;
         if (!voiceChannel) {
             return { success: false, errorMessage: 'You need to be in a voice channel to play music!' };
         }

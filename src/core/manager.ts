@@ -29,6 +29,7 @@ export interface Server {
     volume: number;
     musicPlayer: MusicPlayer;
     musicQueue: MusicQueueItem[];
+    areSlashCommandsRegistered: boolean;
 }
 
 export class ServerManager {
@@ -39,7 +40,8 @@ export class ServerManager {
                 id: guildId,
                 volume: defaultVolume,
                 musicPlayer: null!,
-                musicQueue: []
+                musicQueue: [],
+                areSlashCommandsRegistered: false
             };
             server.musicPlayer = new MusicPlayer(server);
 

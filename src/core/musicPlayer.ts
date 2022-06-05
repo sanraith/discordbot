@@ -2,7 +2,23 @@ import { AudioPlayer, AudioPlayerStatus, AudioResource, createAudioPlayer, creat
 import { TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import { Readable } from 'stream';
 import * as ytdl from 'ytdl-core';
+import { convertSecondsToTimeString, nothingAsync } from './helpers';
 import { MusicQueueItem, PlaylistQueueItem, Server } from './manager';
+
+interface SkipResult {
+    success: boolean;
+    skippedTitle?: string;
+}
+
+interface SkipListResult {
+    success: boolean;
+    skippedTitle?: string;
+    skipCount?: number;
+}
+
+interface PlayResult { mode: 'play' | 'queue'; }
+
+interface StopResult { success: boolean; }
 
 export class MusicPlayer {
     private queue: MusicQueueItem[];
@@ -29,48 +45,43 @@ export class MusicPlayer {
             });
     }
 
-    async playList(listItem: PlaylistQueueItem, voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel): Promise<void> {
-        await textChannel.send(
-            `Queued playlist '${listItem.title}' with ${listItem.items.length} items for a duration of ${this.convertSecondsToTimeString(listItem.totalDurationSeconds)}.`
-        );
-
+    async playList(listItem: PlaylistQueueItem, voiceChannel: VoiceBasedChannel): Promise<void> {
         for (const item of listItem.items) {
             const musicQueueItem: MusicQueueItem = {
                 member: listItem.member,
                 song: item,
                 playlist: listItem
             };
-            await this.play(musicQueueItem, voiceChannel, textChannel, false);
+            await this.play(musicQueueItem, voiceChannel);
         }
-
-        console.log('finished playlist queue');
     }
 
-    async play(queueItem: MusicQueueItem, voiceChannel: VoiceBasedChannel, textChannel: TextBasedChannel, logQueue = true): Promise<void> {
+    async play(queueItem: MusicQueueItem, voiceChannel: VoiceBasedChannel): Promise<PlayResult> {
+        await nothingAsync();
         this.voiceChannel = voiceChannel;
-        this.textChannel = textChannel;
         this.queue.push(queueItem);
         if (this.queue.length === 1) {
             void this.playItem();
-        } else if (logQueue) {
-            await this.textChannel.send(`Queued song: ${queueItem.song.title}`);
+            return { mode: 'play' };
+
         }
+        return { mode: 'queue' };
     }
 
-    async skip(): Promise<void> {
+    async skip(): Promise<SkipResult> {
+        await nothingAsync();
         const currentItem = this.queue[0];
-        if (currentItem) {
-            await this.textChannel?.send(`Skipped song: ${currentItem.song.title}.`);
-        }
-
+        const result = currentItem ? { success: true, skippedTitle: currentItem.song.title } : { success: false };
         this.audioPlayer?.stop();
+
+        return result;
     }
 
-    async skipList(): Promise<void> {
+    async skipList(): Promise<SkipListResult> {
+        await nothingAsync();
         const currentItem = this.queue[0];
         if (!currentItem || !currentItem.playlist) {
-            await this.textChannel?.send(`Cannot skip playlist as none is playing currently.`);
-            return;
+            return { success: false };
         }
 
         // find next item from different playlist
@@ -79,17 +90,21 @@ export class MusicPlayer {
             nextDifferentIndex = this.queue.length;
         }
         this.queue.splice(1, nextDifferentIndex - 1);
-        await this.textChannel?.send(`Skipped ${nextDifferentIndex} items from playlist '${currentItem.playlist.title}'.`);
 
         this.audioPlayer?.stop();
+
+        return { success: true, skipCount: nextDifferentIndex, skippedTitle: currentItem.playlist.title };
     }
 
-    async stop(): Promise<void> {
-        if (this.queue.length > 0) {
+    async stop(): Promise<StopResult> {
+        await nothingAsync();
+        const queueHasItems = this.queue.length > 0;
+        if (queueHasItems) {
             this.queue.splice(0, this.queue.length);
             this.audioPlayer?.stop();
-            await this.textChannel?.send(`Stopped playing.`);
         }
+
+        return { success: queueHasItems };
     }
 
     /**
@@ -97,9 +112,13 @@ export class MusicPlayer {
      * @param volume 100 === 100%
      */
     async setVolume(volume: number): Promise<void> {
+        await nothingAsync();
         this.server.volume = volume / 100;
         this.audioResource?.volume?.setVolume(this.server.volume);
-        await this.textChannel?.send(`Set playback volume to: ${volume}%`);
+    }
+
+    switchTextChannel(channel: TextBasedChannel): void {
+        this.textChannel = channel;
     }
 
     private async playItem(): Promise<void> {
@@ -109,7 +128,7 @@ export class MusicPlayer {
         try {
             void this.textChannel?.send(
                 `Playing: ` +
-                `${this.convertSecondsToTimeString(item.song.durationSeconds)} | ` +
+                `${convertSecondsToTimeString(item.song.durationSeconds)} | ` +
                 `${item.song.title} <${item.song.url}>`);
 
             const musicStream = await this.getMusicStream(item);
@@ -190,15 +209,5 @@ export class MusicPlayer {
         });
 
         return musicStream;
-    }
-
-    private convertSecondsToTimeString(seconds: number): string {
-        if (seconds < 3600) {
-            return new Date(seconds * 1000).toISOString().substr(14, 5);
-        } else if (seconds < 86400) {
-            return new Date(seconds * 1000).toISOString().substr(11, 8);
-        } else {
-            return '> 24h';
-        }
     }
 }

@@ -56,3 +56,19 @@ export async function asyncTakeAll<TItem>(iterator: AsyncGenerator<TItem, void, 
 }
 
 export const isUrlRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*)/;
+
+export function asyncDelay(millis: number): Promise<void> {
+    return new Promise(resolve => setTimeout(() => resolve(), millis));
+}
+
+export function convertSecondsToTimeString(seconds: number): string {
+    if (seconds < 3600) {
+        return new Date(seconds * 1000).toISOString().substr(14, 5);
+    } else if (seconds < 86400) {
+        return new Date(seconds * 1000).toISOString().substr(11, 8);
+    } else {
+        return '> 24h';
+    }
+}
+
+export const nothingAsync: () => Promise<void> = () => Promise.resolve();

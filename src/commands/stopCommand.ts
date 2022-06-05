@@ -1,21 +1,30 @@
-import { Message } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
+import { CommandInteraction } from 'discord.js';
 import { ServerManager } from '../core/manager';
-import { COMMAND_PREFIX_REGEX, ICommand, ICommandResult, SUCCESS_RESULT } from './command';
+import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
-export class StopCommand implements ICommand {
+function generateConfig(commandName: string) {
+    return new SlashCommandBuilder()
+        .setName(commandName)
+        .setDescription('Stops all playback.');
+}
 
-    messageFilters = [
-        new RegExp(COMMAND_PREFIX_REGEX + 's$'),
-        new RegExp(COMMAND_PREFIX_REGEX + 'stop')
+export class StopCommand implements ISlashCommand {
+
+    slashSignatures = [
+        generateConfig('stop')
     ];
 
     constructor(private serverManager: ServerManager) { }
 
-    async execute(message: Message): Promise<ICommandResult> {
+    async executeInteraction(message: CommandInteraction): Promise<ICommandResult> {
         const server = this.serverManager.getOrAdd(message.guild!.id);
-
-        await message.react('⏹');
-        await server.musicPlayer.stop();
+        const { success } = await server.musicPlayer.stop();
+        if (success) {
+            await message.editReply('Stopped playing.');
+        } else {
+            await message.editReply('Nothing is currently playing.');
+        }
 
         return SUCCESS_RESULT;
     }
