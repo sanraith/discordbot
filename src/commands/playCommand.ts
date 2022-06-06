@@ -1,10 +1,10 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, Message } from 'discord.js';
+import { AutocompleteInteraction, CommandInteraction, Message } from 'discord.js';
 import ytdl from 'ytdl-core';
 import ytsr from 'ytsr';
-import { isUrlRegex } from '../core/helpers';
+import { isUrlRegex, nothingAsync, trimDotDot } from '../core/helpers';
 import { ServerManager } from '../core/manager';
-import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
+import { IAutocompleteCommand, ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
 const nameParameter = 'song';
 
@@ -14,16 +14,32 @@ function generateConfig(commandName: string) {
         .addStringOption(option => option
             .setName(nameParameter)
             .setDescription('The title or url of the youtube video.')
+            .setAutocomplete(true)
             .setRequired(true));
 }
 
-export class PlayCommand implements ISlashCommand {
+export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
 
     slashSignatures = [
         generateConfig('play')
     ];
 
     constructor(private serverManager: ServerManager) { }
+
+    async handleAutocomplete(autocomplete: AutocompleteInteraction): Promise<void> {
+        const term = autocomplete.options.getFocused(true).value as string;
+        if (term) {
+            const results = (await this.getVideoSearchResults(term))
+                .filter((_, i) => i < 7)
+                .map(x => ({
+                    name: `${trimDotDot(x.title, 50)} (${x.duration ?? ''})`,
+                    value: x.url
+                }));
+            await autocomplete.respond(results);
+        } else {
+            await autocomplete.respond([]);
+        }
+    }
 
     async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
         const canExecuteResult = this.assertPrerequisites(interaction);
@@ -41,7 +57,7 @@ export class PlayCommand implements ISlashCommand {
 
         console.log(`Looking for song: ${searchTerm}`);
         const isUrl = isUrlRegex.test(searchTerm);
-        const url = isUrl ? searchTerm : await this.searchVideoOnYoutube(searchTerm);
+        const url = isUrl ? searchTerm : await this.findFirstVideo(searchTerm);
 
         const videoInfo = await this.getVideoInfo(url);
         if (!videoInfo) {
@@ -66,10 +82,9 @@ export class PlayCommand implements ISlashCommand {
         return SUCCESS_RESULT;
     }
 
-    private async searchVideoOnYoutube(term: string) {
+    private async findFirstVideo(term: string) {
         try {
-            const results = await ytsr(term, { pages: 1, safeSearch: false });
-            const videos = results.items.filter(x => x.type === 'video') as ytsr.Video[];
+            const videos = await this.getVideoSearchResults(term);
             console.log(`Found ${videos.length} videos.`);
 
             const firstVideo = videos[0];
@@ -83,6 +98,13 @@ export class PlayCommand implements ISlashCommand {
         console.log(`Could not find video for term: ${term}`);
 
         return term;
+    }
+
+    private async getVideoSearchResults(term: string) {
+        const results = await ytsr(term, { pages: 1, safeSearch: false });
+        const videos = results.items.filter(x => x.type === 'video') as ytsr.Video[];
+
+        return videos;
     }
 
     private async getVideoInfo(url: string): Promise<ytdl.videoInfo | null> {

@@ -46,13 +46,25 @@ export async function asyncTakeFirst<TItem>(iterator: AsyncGenerator<TItem, void
     return null;
 }
 
-export async function asyncTakeAll<TItem>(iterator: AsyncGenerator<TItem, void, undefined>): Promise<TItem[]> {
+export async function asyncTake<TItem>(iterator: AsyncGenerator<TItem, void, undefined>, count?: number): Promise<TItem[]> {
+    if (count === undefined) { count = Number.MAX_SAFE_INTEGER; }
     const items: TItem[] = [];
     for await (const item of iterator) {
         items.push(item);
+        if (items.length >= count) { break; }
     }
 
     return items;
+}
+
+export async function* asyncFilter<TItem>(iterator: AsyncGenerator<TItem, void, undefined>, filter: (x: TItem, i: number) => boolean): AsyncGenerator<Awaited<TItem>, void, unknown> {
+    let index = 0;
+    for await (const item of iterator) {
+        if (filter(item, index)) {
+            yield item;
+        }
+        index++;
+    }
 }
 
 export const isUrlRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*)/;
@@ -69,6 +81,11 @@ export function convertSecondsToTimeString(seconds: number): string {
     } else {
         return '> 24h';
     }
+}
+
+export function trimDotDot(text: string, maxLength: number): string {
+    if (!text || text.length <= maxLength) { return text; }
+    return `${text.substring(0, maxLength - 3)}...`;
 }
 
 export const nothingAsync: () => Promise<void> = () => Promise.resolve();

@@ -1,4 +1,5 @@
 import Discord, { CommandInteraction, Message } from 'discord.js';
+import { isAutocompleteCommand } from './commands/command';
 import { COMMANDS, registerSlashCommand, serverManager, SLASH_COMMANDS } from './commands/commands';
 import { config } from './config';
 
@@ -35,20 +36,28 @@ export class DiscordBot {
     }
 
     private async onInteraction(interaction: Discord.Interaction): Promise<void> {
-        if (!interaction.isCommand() || !interaction.guildId || !interaction.channel) { return; }
-        await interaction.deferReply();
+        if (!interaction.guildId || !interaction.channel) { return; }
 
-        const command = SLASH_COMMANDS.find(x => x.slashSignatures.some(sc => sc.name === interaction.commandName));
-        if (!command) {
-            await interaction.editReply(`I do not understand the command: '${interaction.commandName}'`);
-            return;
-        }
+        if (interaction.isAutocomplete()) {
+            const command = SLASH_COMMANDS.find(x => x.slashSignatures.some(sc => sc.name === interaction.commandName));
+            if (!command || !isAutocompleteCommand(command)) { return; }
 
-        await this.handleNewServerOrChannel(interaction);
+            await command.handleAutocomplete(interaction);
+        } else if (interaction.isCommand()) {
+            await interaction.deferReply();
 
-        const result = await command.executeInteraction(interaction);
-        if (!result.success) {
-            await interaction.editReply(result.errorMessage);
+            const command = SLASH_COMMANDS.find(x => x.slashSignatures.some(sc => sc.name === interaction.commandName));
+            if (!command) {
+                await interaction.editReply(`I do not understand the command: '${interaction.commandName}'`);
+                return;
+            }
+
+            await this.handleNewServerOrChannel(interaction);
+
+            const result = await command.executeInteraction(interaction);
+            if (!result.success) {
+                await interaction.editReply(result.errorMessage);
+            }
         }
     }
 

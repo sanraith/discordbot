@@ -1,10 +1,10 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { CommandInteraction, Message } from 'discord.js';
+import { AutocompleteInteraction, CommandInteraction, Message } from 'discord.js';
 import ytpl from 'ytpl';
-import ytsr from 'ytsr';
-import { asyncTakeAll, asyncTakeFirst, convertSecondsToTimeString, isUrlRegex, iterateYoutubePages } from '../core/helpers';
+import ytsr, { Playlist } from 'ytsr';
+import { asyncTake, asyncTakeFirst, convertSecondsToTimeString, isUrlRegex, iterateYoutubePages, trimDotDot } from '../core/helpers';
 import { ServerManager } from '../core/manager';
-import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
+import { IAutocompleteCommand, ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
 const nameParameter = 'name';
 
@@ -14,15 +14,32 @@ function generateConfig(commandName: string) {
         .addStringOption(option => option
             .setName(nameParameter)
             .setDescription('The name or url of the playlist.')
+            .setAutocomplete(true)
             .setRequired(true));
 }
 
-export class PlaylistCommand implements ISlashCommand {
+export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
     slashSignatures = [
         generateConfig('playlist')
     ];
 
     constructor(private serverManager: ServerManager) { }
+
+    async handleAutocomplete(autocomplete: AutocompleteInteraction): Promise<void> {
+        const term = autocomplete.options.getFocused(true).value as string;
+        if (term) {
+            const results = ((await ytsr(await this.getPlaylistUrl(term), { pages: 1, safeSearch: false })).items
+                .filter(x => x.type === 'playlist') as Playlist[])
+                .filter((_, i) => i < 7)
+                .map(x => ({
+                    name: `${trimDotDot(x.title, 50)} (${x.length})`,
+                    value: x.url
+                }));
+            await autocomplete.respond(results);
+        } else {
+            await autocomplete.respond([]);
+        }
+    }
 
     async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
         const canExecuteResult = this.assertPrerequisites(interaction);
@@ -40,7 +57,13 @@ export class PlaylistCommand implements ISlashCommand {
 
         console.log(`Looking for song: ${searchTerm}`);
         const isUrl = isUrlRegex.test(searchTerm);
-        const url = isUrl ? searchTerm : await this.searchPlaylistsOnYoutube(searchTerm);
+
+        let url = '';
+        if (isUrl) {
+            url = /(?<=list=)[^&]*/.exec(searchTerm)?.[0] ?? searchTerm;
+        } else {
+            url = await this.getPlaylistUrl(searchTerm);
+        }
 
         const playlistInfo = await this.getPlaylistInfo(url);
         if (!playlistInfo) {
@@ -73,7 +96,7 @@ export class PlaylistCommand implements ISlashCommand {
         return SUCCESS_RESULT;
     }
 
-    private async searchPlaylistsOnYoutube(term: string) {
+    private async getPlaylistUrl(term: string) {
         try {
             const filters = await ytsr.getFilters(term);
             const playlistFilterUrl = filters.get('Type')?.get('Playlist')?.url ?? 'term';
@@ -88,8 +111,7 @@ export class PlaylistCommand implements ISlashCommand {
 
     private async getPlaylistInfo(playlistUrl: string) {
         try {
-            const searchResults = await ytsr(playlistUrl, { pages: 1, safeSearch: false });
-            const playlistsIterator = iterateYoutubePages(searchResults, (x: ytsr.Continuation) => ytsr.continueReq(x));
+            const playlistsIterator = await this.searchPlaylists(playlistUrl);
             const playlistInfo = await asyncTakeFirst(playlistsIterator, x => (x as ytsr.Item).type === 'playlist') as ytsr.Playlist | null;
 
             return playlistInfo;
@@ -101,11 +123,18 @@ export class PlaylistCommand implements ISlashCommand {
         return null;
     }
 
+    private async searchPlaylists(playlistUrl: string) {
+        const searchResults = await ytsr(playlistUrl, { pages: 1, safeSearch: false });
+        const playlistsIterator = iterateYoutubePages(searchResults, (x: ytsr.Continuation) => ytsr.continueReq(x));
+
+        return playlistsIterator;
+    }
+
     private async getSongsFromPlaylist(playlistInfo: ytsr.Playlist) {
         try {
             const playlist = await ytpl(playlistInfo.playlistID, { pages: 1 });
             const songsIterator = iterateYoutubePages(playlist, (x: ytpl.Continuation) => ytpl.continueReq(x));
-            const songs = await asyncTakeAll(songsIterator) as ytpl.Item[];
+            const songs = await asyncTake(songsIterator) as ytpl.Item[];
 
             return songs;
         } catch (error) {
