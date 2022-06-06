@@ -1,5 +1,8 @@
 FROM node:16
 
+# Add label to find dangling images easier
+LABEL name="sanraith/discordbot"
+
 # Install ffmpeg
 RUN apt-get -y update
 RUN apt-get -y upgrade

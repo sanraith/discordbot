@@ -2,3 +2,4 @@ version: "3.9"
 services:
   main:
     build: .
+    image: sanraith/discordbot

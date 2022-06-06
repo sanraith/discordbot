@@ -5,6 +5,8 @@
         "demux",
         "discordbot",
         "discordjs",
+        "sanraith",
+        "skiplist",
         "ytdl",
         "ytpl",
         "ytsr"

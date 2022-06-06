@@ -33,9 +33,8 @@ export class MusicPlayer {
         this.queue = server.musicQueue;
 
         const endSong = () => this.onPlayComplete();
-        this.audioPlayer = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } });
+        this.audioPlayer = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Pause } });
         this.audioPlayer
-            .on(AudioPlayerStatus.AutoPaused, endSong)
             .on(AudioPlayerStatus.Idle, endSong)
             .on(AudioPlayerStatus.Paused, endSong)
             .on('error', error => {

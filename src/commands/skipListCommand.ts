@@ -11,7 +11,7 @@ function generateConfig(commandName: string) {
 
 export class SkipListCommand implements ISlashCommand {
     slashSignatures = [
-        generateConfig('skip-list')
+        generateConfig('skiplist')
     ];
 
     constructor(private serverManager: ServerManager) { }

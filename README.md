@@ -19,4 +19,5 @@ export const config = {
 
 ## Build docker image
 
-```docker build -t discord-bot .```
+Create image: ```docker build -t discord-bot .```  
+Create/update image and container and start in background: ```npm run docker```

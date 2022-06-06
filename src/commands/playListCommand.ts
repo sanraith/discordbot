@@ -6,7 +6,7 @@ import { asyncTakeAll, asyncTakeFirst, convertSecondsToTimeString, isUrlRegex, i
 import { ServerManager } from '../core/manager';
 import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
-const nameParameter = 'list';
+const nameParameter = 'name';
 
 function generateConfig(commandName: string) {
     return new SlashCommandBuilder().setName(commandName)
@@ -19,7 +19,7 @@ function generateConfig(commandName: string) {
 
 export class PlaylistCommand implements ISlashCommand {
     slashSignatures = [
-        generateConfig('play-list')
+        generateConfig('playlist')
     ];
 
     constructor(private serverManager: ServerManager) { }

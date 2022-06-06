@@ -5,6 +5,7 @@
     "scripts": {
         "start": "tsc && node dist/app.js",
         "dev": "SET DEBUG=discordbot:* && nodemon --config \"./util/nodemon.json\"",
+        "docker": "docker-compose down && docker-compose build && docker-compose up -d && docker image prune -f --filter label=name=sanraith/discordbot",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {
