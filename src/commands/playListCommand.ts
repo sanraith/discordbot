@@ -83,8 +83,9 @@ export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
         }));
         const totalDurationSeconds = songQueueItems.reduce((a, x) => a + x.durationSeconds, 0);
 
-        await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', ` +
-            `queued playlist '${playlistInfo.title}' with ${songs.length} items for a duration of ${convertSecondsToTimeString(totalDurationSeconds)}.`);
+        await interaction.editReply(`Searched for ${isUrl ? `<${searchTerm}>` : `'${searchTerm}'`}, ` +
+            `queued playlist '${playlistInfo.title}' with ${songs.length} items for a duration of ${convertSecondsToTimeString(totalDurationSeconds)}` +
+            `${isUrl ? '' : ` from <${url}>`}.`);
         await server.musicPlayer.playList({
             url: playlistInfo.url,
             title: playlistInfo.title,

@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { AutocompleteInteraction, CommandInteraction, Message } from 'discord.js';
 import ytdl from 'ytdl-core';
 import ytsr from 'ytsr';
-import { isUrlRegex, nothingAsync, trimDotDot } from '../core/helpers';
+import { isUrlRegex, trimDotDot } from '../core/helpers';
 import { ServerManager } from '../core/manager';
 import { IAutocompleteCommand, ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
@@ -74,9 +74,9 @@ export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
         };
         const { mode } = await server.musicPlayer.play({ member, song }, voiceChannel!);
         if (mode === 'queue') {
-            await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', queued: '${song.title}' <${url}>`);
+            await interaction.editReply(`Searched for ${isUrl ? `<${searchTerm}>` : `'${searchTerm}'`}, queued: '${song.title}'${isUrl ? '' : ` <${url}>`}`);
         } else {
-            await interaction.editReply(`Searched for '${isUrl ? `<${searchTerm}>` : searchTerm}', found: '${song.title}'`);
+            await interaction.editReply(`Searched for ${isUrl ? `<${searchTerm}>` : `'${searchTerm}'`}, found: '${song.title}'`);
         }
 
         return SUCCESS_RESULT;

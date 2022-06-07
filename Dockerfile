@@ -14,7 +14,7 @@ WORKDIR /home/node/app
 
 # Remove node_modules, and install deps
 RUN rm -rf node_modules
-RUN npm install --also=dev
+RUN npm install --include=dev
 
 # Start
 CMD [ "npm", "start" ]

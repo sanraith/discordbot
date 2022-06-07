@@ -175,38 +175,44 @@ export class MusicPlayer {
     }
 
     private async getMusicStream(item: MusicQueueItem) {
-        const info = await ytdl.getInfo(item.song.id);
-        const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-        const sortedFormats = audioFormats.sort((a, b) => (a.audioBitrate ?? 0) - (b.audioBitrate ?? 0));
-        const preferredCodecs = 'opus';
+        try {
+            const info = await ytdl.getInfo(item.song.id);
+            const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+            const sortedFormats = audioFormats.sort((a, b) => (a.audioBitrate ?? 0) - (b.audioBitrate ?? 0));
+            const preferredCodecs = 'opus';
 
-        let bestFormat = sortedFormats[0];
-        for (const format of sortedFormats) {
-            const isHigherBitrate = (format.audioBitrate ?? 0) > (bestFormat.audioBitrate ?? 0);
-            const isFormatBetterOrSame = bestFormat.codecs !== preferredCodecs || format.codecs === preferredCodecs;
-            if (isHigherBitrate && isFormatBetterOrSame) {
-                bestFormat = format;
+            let bestFormat = sortedFormats[0];
+            for (const format of sortedFormats) {
+                const isHigherBitrate = (format.audioBitrate ?? 0) > (bestFormat.audioBitrate ?? 0);
+                const isFormatBetterOrSame = bestFormat.codecs !== preferredCodecs || format.codecs === preferredCodecs;
+                if (isHigherBitrate && isFormatBetterOrSame) {
+                    bestFormat = format;
+                }
+
+                const isBitrateSufficient = (bestFormat.audioBitrate ?? 0) >= 64;
+                const isCodecSufficient = bestFormat.codecs === preferredCodecs;
+                if (isBitrateSufficient && isCodecSufficient) {
+                    break;
+                }
             }
 
-            const isBitrateSufficient = (bestFormat.audioBitrate ?? 0) >= 64;
-            const isCodecSufficient = bestFormat.codecs === preferredCodecs;
-            if (isBitrateSufficient && isCodecSufficient) {
-                break;
+            if (!bestFormat) {
+                return null;
             }
-        }
 
-        if (!bestFormat) {
+            console.log(`Picked audio format: ${bestFormat.codecs}, bitrate: ${bestFormat.bitrate ?? 'unknown'}, audioBitrate: ${bestFormat.audioBitrate ?? 'unknown'}`);
+            const musicStream = ytdl(item.song.url, {
+                format: bestFormat,
+                highWaterMark: 1 << 62, // To fix disconnecting issues, referenced from: https://github.com/fent/node-ytdl-core/issues/902#issuecomment-1086880966
+                liveBuffer: 1 << 62,
+                dlChunkSize: 0 //disabling chunking is recommended in discord bot
+            });
+
+            return musicStream;
+        } catch (err) {
+            console.log('musicPlayer>getMusicStream');
+            console.log(err);
             return null;
         }
-
-        console.log(`Picked audio format: ${bestFormat.codecs}, bitrate: ${bestFormat.bitrate ?? 'unknown'}, audioBitrate: ${bestFormat.audioBitrate ?? 'unknown'}`);
-        const musicStream = ytdl(item.song.url, {
-            format: bestFormat,
-            highWaterMark: 1 << 62, // To fix disconnecting issues, referenced from: https://github.com/fent/node-ytdl-core/issues/902#issuecomment-1086880966
-            liveBuffer: 1 << 62,
-            dlChunkSize: 0 //disabling chunking is recommended in discord bot
-        });
-
-        return musicStream;
     }
 }
