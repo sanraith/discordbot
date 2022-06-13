@@ -3,10 +3,16 @@ import { CommandInteraction } from 'discord.js';
 import { ServerManager } from '../core/manager';
 import { ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
+const countParameterName = 'amount';
+
 function generateConfig(commandName: string) {
     return new SlashCommandBuilder()
         .setName(commandName)
-        .setDescription('Skips the currently playing song.');
+        .setDescription('Skips the currently playing song or a number of songs from the queue.')
+        .addIntegerOption(option => option
+            .setName(countParameterName)
+            .setDescription('The number of songs to skip.')
+            .setMinValue(1));
 }
 
 export class SkipCommand implements ISlashCommand {
@@ -18,11 +24,12 @@ export class SkipCommand implements ISlashCommand {
 
     async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
         const server = this.serverManager.getOrAdd(interaction.guild!.id);
-        const { success, skippedTitle } = await server.musicPlayer.skip();
+        const count = interaction.options.getInteger(countParameterName) ?? 1;
+        const { success, skippedCount } = await server.musicPlayer.skip(count);
         if (success) {
-            await interaction.editReply(`Skipped song: ${skippedTitle ?? '?'}.`);
+            await interaction.editReply(`Skipped ${skippedCount} songs.`);
         } else {
-            await interaction.editReply('No song to skip!');
+            await interaction.editReply('No songs to skip!');
         }
 
         return SUCCESS_RESULT;

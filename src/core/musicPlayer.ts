@@ -7,7 +7,7 @@ import { MusicQueueItem, PlaylistQueueItem, Server } from './manager';
 
 interface SkipResult {
     success: boolean;
-    skippedTitle?: string;
+    skippedCount: number;
 }
 
 interface SkipListResult {
@@ -67,10 +67,13 @@ export class MusicPlayer {
         return { mode: 'queue' };
     }
 
-    async skip(): Promise<SkipResult> {
+    async skip(count = 1): Promise<SkipResult> {
         await nothingAsync();
         const currentItem = this.queue[0];
-        const result = currentItem ? { success: true, skippedTitle: currentItem.song.title } : { success: false };
+        const result: SkipResult = currentItem ?
+            { success: true, skippedCount: Math.min(this.queue.length, count) } :
+            { success: false, skippedCount: 0 };
+        this.queue.splice(1, count - 1);
         this.audioPlayer?.stop();
 
         return result;
