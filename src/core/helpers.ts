@@ -34,10 +34,13 @@ export async function* iterateYoutubePages<
     }
 }
 
-export async function asyncTakeFirst<TItem>(iterator: AsyncGenerator<TItem, void, unknown>, filter: (item: TItem, index: number) => boolean): Promise<TItem | null> {
+export async function asyncTakeFirst<TItem>(
+    iterator: AsyncGenerator<TItem, void, unknown>,
+    filter?: ((item: TItem, index: number) => boolean)
+): Promise<TItem | null> {
     let index = 0;
     for await (const item of iterator) {
-        if (filter(item, index)) {
+        if (!filter || filter(item, index)) {
             return item;
         }
         index++;
@@ -57,10 +60,25 @@ export async function asyncTake<TItem>(iterator: AsyncGenerator<TItem, void, und
     return items;
 }
 
-export async function* asyncFilter<TItem>(iterator: AsyncGenerator<TItem, void, undefined>, filter: (x: TItem, i: number) => boolean): AsyncGenerator<Awaited<TItem>, void, unknown> {
+export async function asyncTakeWhile<TItem>(iterator: AsyncGenerator<TItem, void, undefined>, filter?: (x: TItem, i: number) => boolean): Promise<TItem[]> {
+    const items: TItem[] = [];
     let index = 0;
     for await (const item of iterator) {
-        if (filter(item, index)) {
+        if (!filter || filter(item, index)) {
+            items.push(item);
+            index++;
+        } else {
+            break;
+        }
+    }
+
+    return items;
+}
+
+export async function* asyncFilter<TItem>(iterator: AsyncGenerator<TItem, void, undefined>, filter?: (x: TItem, i: number) => boolean): AsyncGenerator<Awaited<TItem>, void, unknown> {
+    let index = 0;
+    for await (const item of iterator) {
+        if (!filter || filter(item, index)) {
             yield item;
         }
         index++;

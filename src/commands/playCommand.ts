@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { AutocompleteInteraction, CommandInteraction, Message } from 'discord.js';
 import ytdl from 'ytdl-core';
 import ytsr from 'ytsr';
-import { isUrlRegex, trimDotDot } from '../core/helpers';
+import { asyncFilter, asyncTakeFirst, asyncTakeWhile, isUrlRegex, iterateYoutubePages, trimDotDot } from '../core/helpers';
 import { ServerManager } from '../core/manager';
 import { IAutocompleteCommand, ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
@@ -29,12 +29,11 @@ export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
     async handleAutocomplete(autocomplete: AutocompleteInteraction): Promise<void> {
         const term = autocomplete.options.getFocused(true).value as string;
         if (term) {
-            const results = (await this.getVideoSearchResults(term))
-                .filter((_, i) => i < 7)
-                .map(x => ({
-                    name: `${trimDotDot(x.title, 50)} (${x.duration ?? ''})`,
-                    value: x.url
-                }));
+            const firstFewVideos = await asyncTakeWhile(await this.getVideoSearchResults(term), (_, i) => i < 7);
+            const results = firstFewVideos.map(x => ({
+                name: `${trimDotDot(x.title, 50)} (${x.duration ?? ''})`,
+                value: x.url
+            }));
             await autocomplete.respond(results);
         } else {
             await autocomplete.respond([]);
@@ -84,10 +83,8 @@ export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
 
     private async findFirstVideo(term: string) {
         try {
-            const videos = await this.getVideoSearchResults(term);
-            console.log(`Found ${videos.length} videos.`);
-
-            const firstVideo = videos[0];
+            const searchResults = await this.getVideoSearchResults(term);
+            const firstVideo = await asyncTakeFirst(searchResults);
             if (firstVideo) {
                 return firstVideo.url;
             }
@@ -102,9 +99,8 @@ export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
 
     private async getVideoSearchResults(term: string) {
         const results = await ytsr(term, { pages: 1, safeSearch: false });
-        const videos = results.items.filter(x => x.type === 'video') as ytsr.Video[];
-
-        return videos;
+        const videoIterator = iterateYoutubePages(results, (x: ytsr.Continuation) => ytsr.continueReq(x)) as AsyncGenerator<ytsr.Item, void, unknown>;
+        return asyncFilter(videoIterator, x => x.type === 'video') as AsyncGenerator<ytsr.Video, void, unknown>;
     }
 
     private async getVideoInfo(url: string): Promise<ytdl.videoInfo | null> {
