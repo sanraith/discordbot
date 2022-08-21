@@ -18,7 +18,7 @@
         "ffmpeg": "^0.0.4",
         "fluent-ffmpeg": "^2.1.2",
         "sodium": "^3.0.2",
-        "ytdl-core": "^4.11.0",
+        "ytdl-core": "github:GreepTheSheep/node-ytdl-core",
         "ytpl": "^2.3.0",
         "ytsr": "^3.8.0"
     },

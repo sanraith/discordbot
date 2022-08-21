@@ -7,6 +7,7 @@ import { ServerManager } from '../core/manager';
 import { IAutocompleteCommand, ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
 const nameParameter = 'name';
+const immediateParameter = 'next';
 
 function generateConfig(commandName: string) {
     return new SlashCommandBuilder().setName(commandName)
@@ -15,7 +16,15 @@ function generateConfig(commandName: string) {
             .setName(nameParameter)
             .setDescription('The name or url of the playlist.')
             .setAutocomplete(true)
-            .setRequired(true));
+            .setRequired(true)
+        ).addStringOption(option => option
+            .setName(immediateParameter)
+            .setDescription('Queues the playlist immediately after the current video.')
+            .setRequired(false)
+            .addChoices(
+                { name: 'yes', value: 'true' },
+                { name: 'no', value: 'false' },
+            ));
 }
 
 export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
@@ -49,6 +58,8 @@ export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
         if (searchTerm === null) {
             return { success: false, errorMessage: 'No title provided!' };
         }
+
+        const isImmediate = (interaction.options.getString(immediateParameter, false) ?? 'false').toLowerCase() === 'true';
 
         const userId = interaction.member!.user.id;
         const member = interaction.guild!.members.cache.get(userId)!;
@@ -92,7 +103,7 @@ export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
             member: member,
             items: songQueueItems,
             totalDurationSeconds: totalDurationSeconds
-        }, voiceChannel!);
+        }, voiceChannel!, isImmediate);
 
         return SUCCESS_RESULT;
     }

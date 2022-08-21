@@ -44,21 +44,30 @@ export class MusicPlayer {
             });
     }
 
-    async playList(listItem: PlaylistQueueItem, voiceChannel: VoiceBasedChannel): Promise<void> {
-        for (const item of listItem.items) {
+    async playList(listItem: PlaylistQueueItem, voiceChannel: VoiceBasedChannel, isImmediate = false): Promise<void> {
+        const items = listItem.items;
+        if (isImmediate) {
+            items.reverse();
+        }
+
+        for (const item of items) {
             const musicQueueItem: MusicQueueItem = {
                 member: listItem.member,
                 song: item,
                 playlist: listItem
             };
-            await this.play(musicQueueItem, voiceChannel);
+            await this.play(musicQueueItem, voiceChannel, isImmediate);
         }
     }
 
-    async play(queueItem: MusicQueueItem, voiceChannel: VoiceBasedChannel): Promise<PlayResult> {
+    async play(queueItem: MusicQueueItem, voiceChannel: VoiceBasedChannel, isImmediate = false): Promise<PlayResult> {
         await nothingAsync();
         this.voiceChannel = voiceChannel;
-        this.queue.push(queueItem);
+        if (isImmediate) {
+            this.queue.splice(1, 0, queueItem);
+        } else {
+            this.queue.push(queueItem);
+        }
         if (this.queue.length === 1) {
             void this.playItem();
             return { mode: 'play' };

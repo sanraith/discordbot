@@ -7,6 +7,7 @@ import { ServerManager } from '../core/manager';
 import { IAutocompleteCommand, ICommandResult, ISlashCommand, SUCCESS_RESULT } from './command';
 
 const nameParameter = 'song';
+const immediateParameter = 'next';
 
 function generateConfig(commandName: string) {
     return new SlashCommandBuilder().setName(commandName)
@@ -15,7 +16,15 @@ function generateConfig(commandName: string) {
             .setName(nameParameter)
             .setDescription('The title or url of the youtube video.')
             .setAutocomplete(true)
-            .setRequired(true));
+            .setRequired(true))
+        .addStringOption(option => option
+            .setName(immediateParameter)
+            .setDescription('Queues the video immediately after the current one.')
+            .setRequired(false)
+            .addChoices(
+                { name: 'yes', value: 'true' },
+                { name: 'no', value: 'false' },
+            ));
 }
 
 export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
@@ -49,6 +58,8 @@ export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
             return { success: false, errorMessage: 'No title provided!' };
         }
 
+        const isImmediate = (interaction.options.getString(immediateParameter, false) ?? 'false').toLowerCase() === 'true';
+
         const userId = interaction.member!.user.id;
         const member = interaction.guild!.members.cache.get(userId)!;
         const voiceChannel = member.voice.channel;
@@ -71,7 +82,7 @@ export class PlayCommand implements ISlashCommand, IAutocompleteCommand {
             title: videoInfo.videoDetails.title,
             durationSeconds: parseInt(videoInfo.videoDetails.lengthSeconds)
         };
-        const { mode } = await server.musicPlayer.play({ member, song }, voiceChannel!);
+        const { mode } = await server.musicPlayer.play({ member, song }, voiceChannel!, isImmediate);
         if (mode === 'queue') {
             await interaction.editReply(`Searched for ${isUrl ? `<${searchTerm}>` : `'${searchTerm}'`}, queued: '${song.title}'${isUrl ? '' : ` <${url}>`}`);
         } else {
