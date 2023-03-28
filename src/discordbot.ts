@@ -1,4 +1,4 @@
-import Discord, { CommandInteraction, Message } from 'discord.js';
+import Discord, { CommandInteraction, IntentsBitField, Message } from 'discord.js';
 import { isAutocompleteCommand } from './commands/command';
 import { COMMANDS, registerSlashCommand, serverManager, SLASH_COMMANDS } from './commands/commands';
 import { config } from './config';
@@ -9,10 +9,10 @@ export class DiscordBot {
     constructor() {
         const client = new Discord.Client({
             intents: [
-                'GUILDS',
-                'GUILD_MESSAGES',
-                'GUILD_MESSAGE_REACTIONS',
-                'GUILD_VOICE_STATES'
+                IntentsBitField.Flags.Guilds,
+                IntentsBitField.Flags.GuildMessages,
+                IntentsBitField.Flags.GuildMessageReactions,
+                IntentsBitField.Flags.GuildVoiceStates,
             ]
         });
         this.client = client;

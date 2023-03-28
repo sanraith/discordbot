@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
-import { AutocompleteInteraction, CommandInteraction, Message } from 'discord.js';
+import { AutocompleteInteraction, CommandInteraction, Message, PermissionFlagsBits } from 'discord.js';
 import ytpl from 'ytpl';
 import ytsr, { Playlist } from 'ytsr';
 import { asyncTake, asyncTakeFirst, convertSecondsToTimeString, isUrlRegex, iterateYoutubePages, trimDotDot } from '../core/helpers';
@@ -35,7 +35,7 @@ export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
     constructor(private serverManager: ServerManager) { }
 
     async handleAutocomplete(autocomplete: AutocompleteInteraction): Promise<void> {
-        const term = autocomplete.options.getFocused(true).value as string;
+        const term = autocomplete.options.getFocused(true).value;
         if (term) {
             const results = ((await ytsr(await this.getPlaylistUrl(term), { pages: 1, safeSearch: false })).items
                 .filter(x => x.type === 'playlist') as Playlist[])
@@ -54,12 +54,13 @@ export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
         const canExecuteResult = this.assertPrerequisites(interaction);
         if (!canExecuteResult.success) { return canExecuteResult; }
 
-        const searchTerm = interaction.options.getString(nameParameter);
-        if (searchTerm === null) {
+        const searchTerm = interaction.options.get(nameParameter)?.value?.toString();
+        if (searchTerm === undefined) {
             return { success: false, errorMessage: 'No title provided!' };
         }
 
-        const isImmediate = (interaction.options.getString(immediateParameter, false) ?? 'false').toLowerCase() === 'true';
+        // Value should be string here, look into a better check than this
+        const isImmediate = (interaction.options.get(immediateParameter, false)?.value ?? false).toString().toLowerCase() === 'true';
 
         const userId = interaction.member!.user.id;
         const member = interaction.guild!.members.cache.get(userId)!;
@@ -174,7 +175,7 @@ export class PlaylistCommand implements ISlashCommand, IAutocompleteCommand {
         }
 
         const permissions = voiceChannel.permissionsFor(message.client.user);
-        if (!permissions || !permissions.has('CONNECT') || !permissions.has('SPEAK')) {
+        if (!permissions || !permissions.has(PermissionFlagsBits.Connect | PermissionFlagsBits.Speak)) {
             return { success: false, errorMessage: 'I need the permissions to join and speak in your voice channel!' };
         }
 

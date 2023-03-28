@@ -24,8 +24,8 @@ export class SkipCommand implements ISlashCommand {
 
     async executeInteraction(interaction: CommandInteraction): Promise<ICommandResult> {
         const server = this.serverManager.getOrAdd(interaction.guild!.id);
-        const count = interaction.options.getInteger(countParameterName) ?? 1;
-        const { success, skippedCount } = await server.musicPlayer.skip(count);
+        const count = interaction.options.get(countParameterName, false)?.value ?? 1;
+        const { success, skippedCount } = await server.musicPlayer.skip(+count);
         if (success) {
             await interaction.editReply(`Skipped ${skippedCount} songs.`);
         } else {

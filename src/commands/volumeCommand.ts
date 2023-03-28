@@ -27,10 +27,10 @@ export class VolumeCommand implements ISlashCommand {
 
     async executeInteraction(message: CommandInteraction): Promise<ICommandResult> {
         await nothingAsync();
-        const volume = message.options.getInteger(valueParameterName)!;
+        const volume = message.options.get(valueParameterName, false)?.value ?? 1;
         const server = this.serverManager.getOrAdd(message.guild!.id);
-        await server.musicPlayer.setVolume(volume);
-        await message.editReply(`Set playback volume to ${volume}%.`);
+        await server.musicPlayer.setVolume(+volume);
+        await message.editReply(`Set playback volume to ${+volume}%.`);
 
         return SUCCESS_RESULT;
     }
