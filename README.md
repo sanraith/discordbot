@@ -2,7 +2,7 @@
 
 Custom discord music bot for my servers.
 
-## Install
+## Setup dev environment (Windows)
 
 Create ```src/config.ts``` with the correct IDs:  
 
@@ -14,9 +14,9 @@ export const config = {
 };
 ```
 
-- Make sure node is installed with build tools included.
+- Make sure Node is installed with build tools included.
 - Install ffmpeg by ```winget install --id=Gyan.FFmpeg  -e``` or other means.
-- Add ffmpeg bin directory to path.
+- Add ffmpeg bin directory to PATH.
 - ```npm config edit``` ➡️ add line ```msvs_version=2015```
 - ```npm install```
 
@@ -27,10 +27,15 @@ Create/update image and container and start in background: ```npm run docker```
 
 ## Configure image auto-restart
 
-docker update --restart unless-stopped discordbot-main-1
+```docker update --restart unless-stopped discordbot-main-1```
+
+## Check logs
+
+```docker logs discordbot-main-1```
 
 ## Commands
 
+- ```-register```: Use this once per server to "activate" the bot. Also needed after new commands are implemented to the bot.
 - /play
 - /playlist
 - /skip
